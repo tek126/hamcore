@@ -5,7 +5,10 @@
 #include <helpers/AdvertDataHelpers.h>
 #include <helpers/TxtDataHelpers.h>
 
-#define MAX_TEXT_LEN    (10*CIPHER_BLOCK_SIZE)  // must be LESS than (MAX_PACKET_PAYLOAD - 4 - CIPHER_MAC_SIZE - 1)
+// HamCore: with MAX_PACKET_PAYLOAD at 176 the datagram guard bounds message
+// data at 159 bytes (timestamp 4 + attempt 1 + text), so cap text at 152 to
+// fail at compose time instead of silently dropping at createDatagram().
+#define MAX_TEXT_LEN    (9*CIPHER_BLOCK_SIZE + 8)  // must be LESS than (MAX_PACKET_PAYLOAD - 4 - CIPHER_MAC_SIZE - 1)
 
 #include "ContactInfo.h"
 
