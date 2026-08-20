@@ -1,3 +1,8 @@
+> **HamCore notes:** `set name` requires the name to begin with your callsign (e.g. `W1AW-2`);
+> radio frequencies are restricted to 420-450 / 902-928 MHz; `set band 33cm|70cm` applies a preset;
+> `set advert.interval` accepts down to 10 minutes; `password` and `guest.password` only work over
+> the local serial console (never over RF); `set tx` enforces the board's maximum TX power.
+
 # CLI Commands
 
 This document provides an overview of CLI commands that can be sent to MeshCore Repeaters, Room Servers and Sensors.

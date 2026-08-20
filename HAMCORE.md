@@ -5,13 +5,13 @@ operable under a US amateur radio license (FCC Part 97). It is an off-grid LoRa 
 messaging system — same hardware, same mesh routing, same companion protocol — with the
 changes required to transmit legally as a licensed amateur station.
 
-**This repo layout**
+**The HamCore ecosystem**
 
-| Directory | Contents |
+| Repository | Contents |
 |---|---|
-| `firmware/` | HamCore firmware (fork of MeshCore v1.17.1) |
-| `client-lib/` | Python companion library (fork of `meshcore_py`) |
-| `client-cli/` | Terminal client (fork of `meshcore-cli`) |
+| [hamcore](https://github.com/tek126/hamcore) | This repo — HamCore firmware (fork of MeshCore v1.17.1) |
+| [hamcore_py](https://github.com/tek126/hamcore_py) | Python companion library (fork of `meshcore_py`) |
+| [hamcore-cli](https://github.com/tek126/hamcore-cli) | Terminal client (fork of `meshcore-cli`) |
 
 ---
 
@@ -36,6 +36,9 @@ permitted:
   2-byte MAC doubles as the recipient/channel selector (destination hashes are only
   1 byte), so it is retained as an authentication/addressing code. The message it
   covers is plaintext.
+- **Login authentication** uses an HMAC proof-of-password (see Operator
+  responsibilities below) — an authentication code, not content encryption, and
+  likewise permitted under §97.113(a)(4).
 
 ### 2. Station identification — §97.119
 
@@ -85,9 +88,13 @@ every 10 minutes.
   segment but local plans vary.
 - **No expectation of privacy:** everything you send — including direct messages — is
   readable by anyone. Do not send anything sensitive.
-- **Repeater/room-server passwords travel in plaintext over the air.** They are access
-  tokens, not secrets — never reuse a real password. (A future release should replace
-  password login with signature-based challenge/response.)
+- **Treat repeater/room-server passwords as access tokens, not secrets.** Login never
+  transmits the password: the client sends a 16-byte HMAC-SHA256 proof
+  (key = password, message = timestamp || server pubkey || client pubkey), so the
+  password never leaves the device, and replayed logins are rejected by the server's
+  timestamp check. Remote `password` / `guest.password` changes over RF are refused
+  (they only work over the local serial console) so a new password is never
+  transmitted either. Even so, never reuse a password you care about.
 - **Third-party traffic, prohibited content, pecuniary interest** rules (§97.113) still
   apply to what people type.
 - **Control operator:** unattended repeaters/room servers operate under automatic
@@ -107,7 +114,6 @@ with any TNC).
 ## Building
 
 ```
-cd firmware
 pio run -e Heltec_v3_companion_radio_ble    # or any of the ~580 env targets
 pio test -e native                          # unit tests (includes callsign validator suite)
 ```

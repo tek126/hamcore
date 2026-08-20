@@ -1,3 +1,9 @@
+> **HamCore differences from stock MeshCore:** payload bodies described below as "ciphertext" are
+> transmitted in **plaintext** (zero-padded to the 16-byte block size; FCC Part 97.113(a)(4)). The
+> 2-byte cipher MAC field remains, computed over the plaintext body, and still selects the matching
+> contact/channel. Login (ANON_REQ) carries a 16-byte HMAC proof-of-password (marker byte 0x04)
+> instead of the password itself. Ed25519 advert signatures are unchanged.
+
 # Payload Format
 
 Inside each [MeshCore Packet](./packet_format.md) is a payload, identified by the payload type in the packet header. The types of payloads are:

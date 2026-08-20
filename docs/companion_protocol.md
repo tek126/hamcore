@@ -1,3 +1,8 @@
+> **HamCore notes:** the companion (BLE/serial/TCP) protocol is unchanged from stock MeshCore, with
+> two behavioral differences: `CMD_SET_ADVERT_NAME` rejects names that do not begin with a valid US
+> amateur callsign, and `CMD_SET_RADIO_PARAMS` rejects frequencies outside 420-450 / 902-928 MHz.
+> The BLE device name prefix is `HamCore-`.
+
 # Companion Protocol
 
 - **Last Updated**: 2026-03-08

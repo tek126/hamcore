@@ -1,3 +1,9 @@
+> **HamCore differences from stock MeshCore:** frames are payload version **2** (header bits 6-7 = 0x01)
+> and every transmitted frame ends with a fixed **8-byte ASCII callsign trailer** (FCC Part 97.119),
+> appended after the payload and not counted in it. `MAX_PACKET_PAYLOAD` is **176** (not 184).
+> Version-1 (stock MeshCore) frames are rejected on receive. The rest of this document describes the
+> shared structure and remains accurate.
+
 # Packet Format
 
 This document describes the MeshCore packet format.
