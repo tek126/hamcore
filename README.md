@@ -1,3 +1,11 @@
+> # ⚠️ HamCore fork
+> This is **HamCore**, a fork of MeshCore modified for legal operation under a US amateur
+> radio license (FCC Part 97): **no content encryption** (Ed25519 signatures kept),
+> **callsign in every transmitted frame** (TX inhibited until you `set name <YOURCALL>`),
+> and **frequency limits enforced to the 70cm/33cm US ham bands**.
+> HamCore is *not* over-the-air compatible with stock MeshCore.
+> See [HAMCORE.md](HAMCORE.md) for the full compliance rationale and operator responsibilities.
+
 ## About MeshCore
 
 MeshCore is a lightweight, portable C++ library that enables multi-hop packet routing for embedded projects using LoRa and other packet radios. It is designed for developers who want to create resilient, decentralized communication networks that work without the internet.

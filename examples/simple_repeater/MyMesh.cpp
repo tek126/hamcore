@@ -1,10 +1,11 @@
 #include "MyMesh.h"
 #include <algorithm>
+#include <helpers/HamRadio.h>
 
 /* ------------------------------ Config -------------------------------- */
 
 #ifndef LORA_FREQ
-  #define LORA_FREQ 915.0
+  #define LORA_FREQ 906.875
 #endif
 #ifndef LORA_BW
   #define LORA_BW 250
@@ -945,6 +946,7 @@ void MyMesh::begin(FILESYSTEM *fs) {
   _fs = fs;
   // load persisted prefs
   _cli.loadPrefs(_fs);
+  onNodeNameChanged(_prefs.node_name);   // HamCore: derive station callsign (TX inhibited if invalid)
   acl.load(_fs, self_id);
   // TODO: key_store.begin();
   region_map.load(_fs);
@@ -1002,6 +1004,16 @@ void MyMesh::sendFloodScoped(const TransportKey& scope, mesh::Packet* pkt, uint3
     codes[0] = scope.calcTransportCode(pkt);
     codes[1] = 0;  // REVISIT: set to 'home' Region, for sender/return region?
     sendFlood(pkt, codes, delay_millis, path_hash_size);
+  }
+}
+
+
+void MyMesh::onNodeNameChanged(const char* name) {
+  char callsign[CALLSIGN_BUF_SIZE];
+  if (mesh::HamRadio::extractCallsign(callsign, name) > 0) {
+    setStationCallsign(callsign);
+  } else {
+    setStationCallsign("");   // TX inhibited until the node name starts with a valid callsign
   }
 }
 

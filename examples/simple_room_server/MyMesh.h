@@ -36,7 +36,7 @@
 #endif
 
 #ifndef LORA_FREQ
-  #define LORA_FREQ   915.0
+  #define LORA_FREQ   906.875
 #endif
 #ifndef LORA_BW
   #define LORA_BW     250
@@ -196,6 +196,7 @@ public:
 
   // CommonCLICallbacks
   void applyTempRadioParams(float freq, float bw, uint8_t sf, uint8_t cr, int timeout_mins) override;
+  void onNodeNameChanged(const char* name) override;
   bool formatFileSystem() override;
   void sendSelfAdvertisement(int delay_millis, bool flood) override;
   void updateAdvertTimer() override;

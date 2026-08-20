@@ -9,7 +9,7 @@
 #endif
 
 #ifdef ETHERNET_ENABLED
-  #define ETHERNET_CLI_BANNER "MeshCore Repeater CLI"
+  #define ETHERNET_CLI_BANNER "HamCore Repeater CLI"
   #include <helpers/nrf52/EthernetCLI.h>
 #endif
 

@@ -1,4 +1,5 @@
 #include <Arduino.h>   // needed for PlatformIO
+#include <helpers/HamRadio.h>
 #include <Mesh.h>
 
 #if defined(NRF52_PLATFORM)
@@ -21,7 +22,7 @@
 #define FIRMWARE_VER_TEXT   "v2 (build: 4 Feb 2025)"
 
 #ifndef LORA_FREQ
-  #define LORA_FREQ   915.0
+  #define LORA_FREQ   906.875
 #endif
 #ifndef LORA_BW
   #define LORA_BW     250
@@ -290,6 +291,16 @@ public:
     curr_recipient = NULL;
   }
 
+
+  void applyStationCallsign() {
+    char callsign[CALLSIGN_BUF_SIZE];
+    if (mesh::HamRadio::extractCallsign(callsign, _prefs.node_name) > 0) {
+      setStationCallsign(callsign);
+    } else {
+      setStationCallsign("");   // TX inhibited until the node name starts with a valid callsign
+    }
+  }
+
   float getFreqPref() const { return _prefs.freq; }
   int8_t getTxPowerPref() const { return _prefs.tx_power_dbm; }
 
@@ -356,8 +367,9 @@ public:
   }
 
   void showWelcome() {
-    Serial.println("===== MeshCore Chat Terminal =====");
+    Serial.println("===== HamCore Chat Terminal =====");
     Serial.println();
+    applyStationCallsign();   // HamCore: TX inhibited until node name starts with a valid callsign
     Serial.printf("WELCOME  %s\n", _prefs.node_name);
     mesh::Utils::printHex(Serial, self_id.pub_key, PUB_KEY_SIZE);
     Serial.println();
@@ -479,9 +491,14 @@ public:
         savePrefs();
         Serial.println("  OK");
       } else if (memcmp(config, "name ", 5) == 0) {
-        StrHelper::strncpy(_prefs.node_name, &config[5], sizeof(_prefs.node_name));
-        savePrefs();
-        Serial.println("  OK");
+        if (mesh::HamRadio::isValidNodeName(&config[5])) {
+          StrHelper::strncpy(_prefs.node_name, &config[5], sizeof(_prefs.node_name));
+          savePrefs();
+          applyStationCallsign();
+          Serial.println("  OK");
+        } else {
+          Serial.println("  ERR: name must start with your callsign (eg. W1AW or W1AW-2)");
+        }
       } else if (memcmp(config, "lat ", 4) == 0) {
         _prefs.node_lat = atof(&config[4]);
         savePrefs();

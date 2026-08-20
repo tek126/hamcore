@@ -128,6 +128,7 @@ class Dispatcher {
   unsigned long tx_budget_ms;
   unsigned long last_budget_update;
   unsigned long duty_cycle_window_ms;
+  char station_callsign[CALLSIGN_BUF_SIZE];   // HamCore: appended to every TX frame; TX inhibited while empty
 
   void processRecvPacket(Packet* pkt);
   void updateTxBudget();
@@ -152,6 +153,7 @@ protected:
     tx_budget_ms = 0;
     last_budget_update = 0;
     duty_cycle_window_ms = 3600000;
+    memset(station_callsign, 0, sizeof(station_callsign));
   }
 
   virtual DispatcherAction onRecvPacket(Packet* pkt) = 0;
@@ -179,6 +181,15 @@ public:
   Packet* obtainNewPacket();
   void releasePacket(Packet* packet);
   void sendPacket(Packet* packet, uint8_t priority, uint32_t delay_millis=0);
+
+  /**
+   * \brief  HamCore: sets the station callsign appended to every transmitted frame
+   *      (FCC Part 97.119). Pass an empty string to clear; while unset, ALL
+   *      transmissions are inhibited.
+   */
+  void setStationCallsign(const char* callsign);
+  bool hasStationCallsign() const { return station_callsign[0] != 0; }
+  const char* getStationCallsign() const { return station_callsign; }
 
   unsigned long getTotalAirTime() const { return total_air_time; }
   unsigned long getReceiveAirTime() const {return rx_air_time; }

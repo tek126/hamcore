@@ -3,6 +3,7 @@
 #include "TxtDataHelpers.h"
 #include "AdvertDataHelpers.h"
 #include "TxtDataHelpers.h"
+#include "HamRadio.h"
 #include <RTClib.h>
 
 #ifndef BRIDGE_MAX_BAUD
@@ -20,6 +21,8 @@ static uint32_t _atoi(const char* sp) {
 }
 
 static bool isValidName(const char *n) {
+  // HamCore: node name must begin with the operator's callsign (FCC Part 97.119)
+  if (!mesh::HamRadio::isValidNodeName(n)) return false;
   while (*n) {
     if (*n == '[' || *n == ']' || *n == '\\' || *n == ':' || *n == ',' || *n == '?' || *n == '*') return false;
     n++;
@@ -43,6 +46,11 @@ void CommonCLI::loadPrefs(FILESYSTEM* fs) {
     if (savePrefs(fs)) {  // save to new Serial prefs
   //    fs->remove("/com_prefs");  // remove old
     }
+  }
+  // HamCore: prefs carried over from a stock MeshCore install may hold an
+  // out-of-band frequency -- reset to the 33cm default rather than TX out of band
+  if (!mesh::HamRadio::isHamFrequency(_prefs->freq)) {
+    _prefs->freq = 906.875f;
   }
 }
 
@@ -109,7 +117,9 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {  // Legacy 
     _prefs->tx_delay_factor = constrain(_prefs->tx_delay_factor, 0, 2.0f);
     _prefs->direct_tx_delay_factor = constrain(_prefs->direct_tx_delay_factor, 0, 2.0f);
     _prefs->airtime_factor = constrain(_prefs->airtime_factor, 0, 9.0f);
-    _prefs->freq = constrain(_prefs->freq, 150.0f, 2500.0f);
+    if (!mesh::HamRadio::isHamFrequency(_prefs->freq)) {
+      _prefs->freq = 906.875f;   // stored freq is outside the US ham bands -- reset to 33cm default
+    }
     _prefs->bw = constrain(_prefs->bw, 7.8f, 500.0f);
     _prefs->sf = constrain(_prefs->sf, 5, 12);
     _prefs->cr = constrain(_prefs->cr, 5, 8);
@@ -157,7 +167,8 @@ bool CommonCLI::savePrefs(FILESYSTEM* fs) {
   return false;
 }
 
-#define MIN_LOCAL_ADVERT_INTERVAL   60
+// HamCore: allow 10-minute ID beacons (FCC Part 97.119 station-ID interval)
+#define MIN_LOCAL_ADVERT_INTERVAL   10
 
 void CommonCLI::savePrefs() {
   if (_prefs->advert_interval * 2 < MIN_LOCAL_ADVERT_INTERVAL) {
@@ -247,11 +258,11 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, char* command, char* re
       uint8_t sf  = num > 2 ? atoi(parts[2]) : 0;
       uint8_t cr  = num > 3 ? atoi(parts[3]) : 0;
       int temp_timeout_mins  = num > 4 ? atoi(parts[4]) : 0;
-      if (freq >= 150.0f && freq <= 2500.0f && sf >= 5 && sf <= 12 && cr >= 5 && cr <= 8 && bw >= 7.0f && bw <= 500.0f && temp_timeout_mins > 0) {
+      if (mesh::HamRadio::isHamFrequency(freq) && sf >= 5 && sf <= 12 && cr >= 5 && cr <= 8 && bw >= 7.0f && bw <= 500.0f && temp_timeout_mins > 0) {
         _callbacks->applyTempRadioParams(freq, bw, sf, cr, temp_timeout_mins);
         sprintf(reply, "OK - temp params for %d mins", temp_timeout_mins);
       } else {
-        strcpy(reply, "Error, invalid params");
+        strcpy(reply, "Error, invalid params (freq must be in 420-450 or 902-928 MHz)");
       }
     } else if (memcmp(command, "password ", 9) == 0) {
       // change admin password
@@ -524,9 +535,10 @@ void CommonCLI::handleSetCmd(uint32_t sender_timestamp, char* command, char* rep
     if (isValidName(&config[5])) {
       StrHelper::strncpy(_prefs->node_name, &config[5], sizeof(_prefs->node_name));
       savePrefs();
+      _callbacks->onNodeNameChanged(_prefs->node_name);
       strcpy(reply, "OK");
     } else {
-      strcpy(reply, "Error, bad chars");
+      strcpy(reply, "Error, name must start with your callsign (eg. W1AW or W1AW-2)");
     }
   } else if (memcmp(config, "repeat ", 7) == 0) {
     _prefs->disable_fwd = memcmp(&config[7], "off", 3) == 0;
@@ -593,7 +605,7 @@ void CommonCLI::handleSetCmd(uint32_t sender_timestamp, char* command, char* rep
     float bw    = num > 1 ? strtof(parts[1], nullptr) : 0.0f;
     uint8_t sf  = num > 2 ? atoi(parts[2]) : 0;
     uint8_t cr  = num > 3 ? atoi(parts[3]) : 0;
-    if (freq >= 150.0f && freq <= 2500.0f && sf >= 5 && sf <= 12 && cr >= 5 && cr <= 8 && bw >= 7.0f && bw <= 500.0f) {
+    if (mesh::HamRadio::isHamFrequency(freq) && sf >= 5 && sf <= 12 && cr >= 5 && cr <= 8 && bw >= 7.0f && bw <= 500.0f) {
       _prefs->sf = sf;
       _prefs->cr = cr;
       _prefs->freq = freq;
@@ -601,8 +613,20 @@ void CommonCLI::handleSetCmd(uint32_t sender_timestamp, char* command, char* rep
       _callbacks->savePrefs();
       strcpy(reply, "OK - reboot to apply");
     } else {
-      strcpy(reply, "Error, invalid radio params");
+      strcpy(reply, "Error, invalid radio params (freq must be in 420-450 or 902-928 MHz)");
     }
+  } else if (memcmp(config, "band ", 5) == 0) {
+    // HamCore band presets (US amateur allocations; check your local band plan)
+    if (memcmp(&config[5], "33cm", 4) == 0) {
+      _prefs->freq = 906.875f; _prefs->bw = 250.0f; _prefs->sf = 10; _prefs->cr = 5;
+    } else if (memcmp(&config[5], "70cm", 4) == 0) {
+      _prefs->freq = 433.5f; _prefs->bw = 250.0f; _prefs->sf = 10; _prefs->cr = 5;
+    } else {
+      strcpy(reply, "Error, band must be 33cm or 70cm");
+      return;
+    }
+    _callbacks->savePrefs();
+    sprintf(reply, "OK - %s: %.3fMHz bw=%.0f sf=%d cr=%d - reboot to apply", &config[5], _prefs->freq, _prefs->bw, (int)_prefs->sf, (int)_prefs->cr);
   } else if (memcmp(config, "lat ", 4) == 0) {
     _prefs->node_lat = atof(&config[4]);
     savePrefs();
@@ -706,14 +730,26 @@ void CommonCLI::handleSetCmd(uint32_t sender_timestamp, char* command, char* rep
       strcpy(reply, "OK");
     }
   } else if (memcmp(config, "tx ", 3) == 0) {
-    _prefs->tx_power_dbm = atoi(&config[3]);
+    int8_t dbm = atoi(&config[3]);
+#ifdef MAX_LORA_TX_POWER
+    if (dbm > MAX_LORA_TX_POWER) {
+      sprintf(reply, "Error, max tx power for this board is %d dBm", (int)MAX_LORA_TX_POWER);
+      return;
+    }
+#endif
+    _prefs->tx_power_dbm = dbm;
     savePrefs();
     _callbacks->setTxPower(_prefs->tx_power_dbm);
     strcpy(reply, "OK");
   } else if (sender_timestamp == 0 && memcmp(config, "freq ", 5) == 0) {
-    _prefs->freq = atof(&config[5]);
-    savePrefs();
-    strcpy(reply, "OK - reboot to apply");
+    float freq = atof(&config[5]);
+    if (mesh::HamRadio::isHamFrequency(freq)) {
+      _prefs->freq = freq;
+      savePrefs();
+      strcpy(reply, "OK - reboot to apply");
+    } else {
+      strcpy(reply, "Error, freq must be in 420-450 or 902-928 MHz");
+    }
 #ifdef WITH_BRIDGE
   } else if (memcmp(config, "bridge.enabled ", 15) == 0) {
     _prefs->bridge_enabled = memcmp(&config[15], "on", 2) == 0;

@@ -13,7 +13,7 @@
 
 bool ESP32Board::startOTAUpdate(const char* id, char reply[]) {
   inhibit_sleep = true;   // prevent sleep during OTA
-  WiFi.softAP("MeshCore-OTA", NULL);
+  WiFi.softAP("HamCore-OTA", NULL);
 
   sprintf(reply, "Started: http://%s/update", WiFi.softAPIP().toString().c_str());
   MESH_DEBUG_PRINTLN("startOTAUpdate: %s", reply);
@@ -21,7 +21,7 @@ bool ESP32Board::startOTAUpdate(const char* id, char reply[]) {
   static char id_buf[60];
   sprintf(id_buf, "%s (%s)", id, getManufacturerName());
   static char home_buf[90];
-  sprintf(home_buf, "<H2>Hi! I am a MeshCore Repeater. ID: %s</H2>", id);
+  sprintf(home_buf, "<H2>Hi! I am a HamCore Repeater. ID: %s</H2>", id);
 
   AsyncWebServer* server = new AsyncWebServer(80);
 

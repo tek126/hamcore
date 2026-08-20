@@ -4,7 +4,7 @@
 #include "MyMesh.h"
 
 #ifdef ETHERNET_ENABLED
-  #define ETHERNET_CLI_BANNER "MeshCore Room Server CLI"
+  #define ETHERNET_CLI_BANNER "HamCore Room Server CLI"
   #include <helpers/nrf52/EthernetCLI.h>
 #endif
 

@@ -1,12 +1,10 @@
 #include "Utils.h"
-#include <AES.h>
 #include <SHA256.h>
 
 #ifdef USE_CC310_HW_CRYPTO
 #include <Adafruit_nRFCrypto.h>
 #include "nrf_cc310/include/crys_hash.h"
 #include "nrf_cc310/include/crys_hmac.h"
-#include "nrf_cc310/include/ssi_aes.h"
 #endif
 
 #ifdef ARDUINO
@@ -50,78 +48,23 @@ void Utils::sha256(uint8_t *hash, size_t hash_len, const uint8_t* frag1, int fra
 #endif
 }
 
+// HamCore: FCC Part 97.113(a)(4) prohibits obscuring the meaning of transmitted
+// messages, so the payload "cipher" is an identity transform. The zero-padding to
+// CIPHER_BLOCK_SIZE and the keyed-HMAC prefix are preserved: receivers rely on the
+// padding for string termination, and the truncated HMAC (authentication, which
+// Part 97 permits) is what selects the matching contact/channel on receive.
 int Utils::decrypt(const uint8_t* shared_secret, uint8_t* dest, const uint8_t* src, int src_len) {
-#ifdef USE_CC310_HW_CRYPTO
-  static SaSiAesUserContext_t ctx;
-  SaSiAesUserKeyData_t keyData = { (uint8_t*)shared_secret, CIPHER_KEY_SIZE };
-  uint8_t* dp = dest;
-  const uint8_t* sp = src;
-  size_t dummy_out = 0;
-
-  SaSi_AesInit(&ctx, SASI_AES_DECRYPT, SASI_AES_MODE_ECB, SASI_AES_PADDING_NONE);
-  SaSi_AesSetKey(&ctx, SASI_AES_USER_KEY, &keyData, sizeof(keyData));
-  while (sp - src < src_len) {
-    SaSi_AesBlock(&ctx, (uint8_t*)sp, 16, dp);
-    dp += 16; sp += 16;
-  }
-  SaSi_AesFinish(&ctx, 0, NULL, 0, NULL, &dummy_out);
-  SaSi_AesFree(&ctx);
-  return sp - src;
-#else
-  AES128 aes;
-  uint8_t* dp = dest;
-  const uint8_t* sp = src;
-
-  aes.setKey(shared_secret, CIPHER_KEY_SIZE);
-  while (sp - src < src_len) {
-    aes.decryptBlock(dp, sp);
-    dp += 16; sp += 16;
-  }
-
-  return sp - src;  // will always be multiple of 16
-#endif
+  (void) shared_secret;
+  memcpy(dest, src, src_len);
+  return src_len;  // will always be multiple of 16
 }
 
 int Utils::encrypt(const uint8_t* shared_secret, uint8_t* dest, const uint8_t* src, int src_len) {
-#ifdef USE_CC310_HW_CRYPTO
-  static SaSiAesUserContext_t ctx;
-  SaSiAesUserKeyData_t keyData = { (uint8_t*)shared_secret, CIPHER_KEY_SIZE };
-  uint8_t* dp = dest;
-  size_t dummy_out = 0;
-
-  SaSi_AesInit(&ctx, SASI_AES_ENCRYPT, SASI_AES_MODE_ECB, SASI_AES_PADDING_NONE);
-  SaSi_AesSetKey(&ctx, SASI_AES_USER_KEY, &keyData, sizeof(keyData));
-  while (src_len >= 16) {
-    SaSi_AesBlock(&ctx, (uint8_t*)src, 16, dp);
-    dp += 16; src += 16; src_len -= 16;
-  }
-  if (src_len > 0) {  // remaining partial block — zero-pad to 16 bytes
-    uint8_t tmp[16] = {};
-    memcpy(tmp, src, src_len);
-    SaSi_AesBlock(&ctx, tmp, 16, dp);
-    dp += 16;
-  }
-  SaSi_AesFinish(&ctx, 0, NULL, 0, NULL, &dummy_out);
-  SaSi_AesFree(&ctx);
-  return dp - dest;
-#else
-  AES128 aes;
-  uint8_t* dp = dest;
-
-  aes.setKey(shared_secret, CIPHER_KEY_SIZE);
-  while (src_len >= 16) {
-    aes.encryptBlock(dp, src);
-    dp += 16; src += 16; src_len -= 16;
-  }
-  if (src_len > 0) {  // remaining partial block
-    uint8_t tmp[16];
-    memset(tmp, 0, 16);
-    memcpy(tmp, src, src_len);
-    aes.encryptBlock(dp, tmp);
-    dp += 16;
-  }
-  return dp - dest;  // will always be multiple of 16
-#endif
+  (void) shared_secret;
+  int padded_len = ((src_len + CIPHER_BLOCK_SIZE - 1) / CIPHER_BLOCK_SIZE) * CIPHER_BLOCK_SIZE;
+  memset(dest, 0, padded_len);
+  memcpy(dest, src, src_len);
+  return padded_len;  // will always be multiple of 16
 }
 
 int Utils::encryptThenMAC(const uint8_t* shared_secret, uint8_t* dest, const uint8_t* src, int src_len) {

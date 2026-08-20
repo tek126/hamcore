@@ -49,6 +49,7 @@ public:
   uint8_t path[MAX_PATH_SIZE];
   uint8_t payload[MAX_PACKET_PAYLOAD];
   int8_t _snr;
+  char transmitter_callsign[CALLSIGN_BUF_SIZE];   // HamCore: callsign of the station heard transmitting this frame
 
   /**
    * \brief calculate the hash of payload + type

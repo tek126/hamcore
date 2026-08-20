@@ -1,4 +1,5 @@
 #include "MyMesh.h"
+#include <helpers/HamRadio.h>
 
 #include <Arduino.h> // needed for PlatformIO
 #include <Mesh.h>
@@ -940,13 +941,18 @@ void MyMesh::begin(bool has_display) {
   // sanitise bad pref values
   _prefs.rx_delay_base = constrain(_prefs.rx_delay_base, 0, 20.0f);
   _prefs.airtime_factor = constrain(_prefs.airtime_factor, 0, 9.0f);
-  _prefs.freq = constrain(_prefs.freq, 150.0f, 2500.0f);
+  if (!mesh::HamRadio::isHamFrequency(_prefs.freq)) {
+    _prefs.freq = 906.875f;   // stored freq is outside the US ham bands -- reset to 33cm default
+  }
   _prefs.bw = constrain(_prefs.bw, 7.8f, 500.0f);
   _prefs.sf = constrain(_prefs.sf, 5, 12);
   _prefs.cr = constrain(_prefs.cr, 5, 8);
   _prefs.tx_power_dbm = constrain(_prefs.tx_power_dbm, -9, MAX_LORA_TX_POWER);
   _prefs.gps_enabled = constrain(_prefs.gps_enabled, 0, 1);  // Ensure boolean 0 or 1
   _prefs.gps_interval = constrain(_prefs.gps_interval, 0, 86400);  // Max 24 hours
+
+  // HamCore: derive station callsign from node name (TX inhibited while invalid/unset)
+  applyStationCallsign();
 
 #ifdef BLE_PIN_CODE // 123456 by default
   if (_prefs.ble_pin == 0) {
@@ -1000,9 +1006,8 @@ static FreqRange repeat_freq_ranges[] = {
   #ifdef ALLOWED_REPEAT_FREQ_RANGE
   ALLOWED_REPEAT_FREQ_RANGE
   #else
-  { 433000, 433000 },
-  { 869495, 869495 },
-  { 918000, 918000 }
+  { 420000, 450000 },   // US 70cm amateur band
+  { 902000, 928000 }    // US 33cm amateur band
   #endif
 };
 
@@ -1012,6 +1017,15 @@ bool MyMesh::isValidClientRepeatFreq(uint32_t f) const {
     if (f >= r->lower_freq && f <= r->upper_freq) return true;
   }
   return false;
+}
+
+void MyMesh::applyStationCallsign() {
+  char callsign[CALLSIGN_BUF_SIZE];
+  if (mesh::HamRadio::extractCallsign(callsign, _prefs.node_name) > 0) {
+    setStationCallsign(callsign);
+  } else {
+    setStationCallsign("");   // TX inhibited until the node name starts with a valid callsign
+  }
 }
 
 void MyMesh::startInterface(BaseSerialInterface &serial) {
@@ -1212,10 +1226,18 @@ void MyMesh::handleCmdFrame(size_t len) {
   } else if (cmd_frame[0] == CMD_SET_ADVERT_NAME && len >= 2) {
     int nlen = len - 1;
     if (nlen > sizeof(_prefs.node_name) - 1) nlen = sizeof(_prefs.node_name) - 1; // max len
-    memcpy(_prefs.node_name, &cmd_frame[1], nlen);
-    _prefs.node_name[nlen] = 0; // null terminator
-    savePrefs();
-    writeOKFrame();
+    char new_name[sizeof(_prefs.node_name)];
+    memcpy(new_name, &cmd_frame[1], nlen);
+    new_name[nlen] = 0; // null terminator
+    if (!mesh::HamRadio::isValidNodeName(new_name)) {
+      // HamCore: node name must start with the operator's callsign (FCC Part 97.119)
+      writeErrFrame(ERR_CODE_ILLEGAL_ARG);
+    } else {
+      strcpy(_prefs.node_name, new_name);
+      savePrefs();
+      applyStationCallsign();
+      writeOKFrame();
+    }
   } else if (cmd_frame[0] == CMD_SET_ADVERT_LATLON && len >= 9) {
     int32_t lat, lon, alt = 0;
     memcpy(&lat, &cmd_frame[1], 4);
@@ -1393,7 +1415,7 @@ void MyMesh::handleCmdFrame(size_t len) {
 
     if (repeat && !isValidClientRepeatFreq(freq)) {
       writeErrFrame(ERR_CODE_ILLEGAL_ARG);
-    } else if (freq >= 150000 && freq <= 2500000 && sf >= 5 && sf <= 12 && cr >= 5 && cr <= 8 && bw >= 7000 &&
+    } else if (mesh::HamRadio::isHamFrequencyKhz(freq) && sf >= 5 && sf <= 12 && cr >= 5 && cr <= 8 && bw >= 7000 &&
         bw <= 500000) {
       _prefs.sf = sf;
       _prefs.cr = cr;

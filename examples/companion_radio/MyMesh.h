@@ -37,7 +37,7 @@
 /* ---------------------------------- CONFIGURATION ------------------------------------- */
 
 #ifndef LORA_FREQ
-#define LORA_FREQ 915.0
+#define LORA_FREQ 906.875
 #endif
 #ifndef LORA_BW
 #define LORA_BW 250
@@ -64,7 +64,7 @@
 #endif
 
 #ifndef BLE_NAME_PREFIX
-#define BLE_NAME_PREFIX "MeshCore-"
+#define BLE_NAME_PREFIX "HamCore-"
 #endif
 
 #include <helpers/BaseChatMesh.h>
@@ -89,6 +89,7 @@ public:
   MyMesh(mesh::Radio &radio, mesh::RNG &rng, mesh::RTCClock &rtc, SimpleMeshTables &tables, DataStore& store, AbstractUITask* ui=NULL);
 
   void begin(bool has_display);
+  void applyStationCallsign();
   void startInterface(BaseSerialInterface &serial);
 
   const char *getNodeName();

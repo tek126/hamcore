@@ -1,9 +1,10 @@
 #include "SensorMesh.h"
+#include <helpers/HamRadio.h>
 
 /* ------------------------------ Config -------------------------------- */
 
 #ifndef LORA_FREQ
-  #define LORA_FREQ   915.0
+  #define LORA_FREQ   906.875
 #endif
 #ifndef LORA_BW
   #define LORA_BW     250
@@ -745,6 +746,7 @@ void SensorMesh::begin(FILESYSTEM* fs) {
   _fs = fs;
   // load persisted prefs
   _cli.loadPrefs(_fs);
+  onNodeNameChanged(_prefs.node_name);   // HamCore: derive station callsign (TX inhibited if invalid)
 
   acl.load(_fs, self_id);
   region_map.load(_fs);
@@ -808,6 +810,16 @@ void SensorMesh::saveIdentity(const mesh::LocalIdentity& new_id) {
   #error "need to define saveIdentity()"
 #endif
   store.save("_main", new_id);
+}
+
+
+void SensorMesh::onNodeNameChanged(const char* name) {
+  char callsign[CALLSIGN_BUF_SIZE];
+  if (mesh::HamRadio::extractCallsign(callsign, name) > 0) {
+    setStationCallsign(callsign);
+  } else {
+    setStationCallsign("");   // TX inhibited until the node name starts with a valid callsign
+  }
 }
 
 void SensorMesh::applyTempRadioParams(float freq, float bw, uint8_t sf, uint8_t cr, int timeout_mins) {

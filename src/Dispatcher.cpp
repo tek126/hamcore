@@ -150,7 +150,7 @@ bool Dispatcher::tryParsePacket(Packet* pkt, const uint8_t* raw, int len) {
   int i = 0;
 
   pkt->header = raw[i++];
-  if (pkt->getPayloadVer() > PAYLOAD_VER_1) {
+  if (pkt->getPayloadVer() > PAYLOAD_VER_2) {   // HamCore frames are PAYLOAD_VER_2
     MESH_DEBUG_PRINTLN("%s Dispatcher::checkRecv(): unsupported packet version", getLogDateTime());
     return false;
   }
@@ -198,10 +198,20 @@ void Dispatcher::checkRecv() {
     if (len > 0) {
       logRxRaw(_radio->getLastSNR(), _radio->getLastRSSI(), raw, len);
 
+      // HamCore frames are PAYLOAD_VER_2 and always end with a callsign trailer.
+      // Anything else (eg. stock MeshCore VER_1 traffic) is dropped, not misparsed.
+      if (((raw[0] >> PH_VER_SHIFT) & PH_VER_MASK) != PAYLOAD_VER_2 || len <= CALLSIGN_TRAILER_SIZE + 2) {
+        MESH_DEBUG_PRINTLN("%s Dispatcher::checkRecv(): not a HamCore frame, dropping (len=%d)", getLogDateTime(), len);
+        return;
+      }
+      len -= CALLSIGN_TRAILER_SIZE;
+
       pkt = _mgr->allocNew();
       if (pkt == NULL) {
         MESH_DEBUG_PRINTLN("%s Dispatcher::checkRecv(): WARNING: received data, no unused packets available!", getLogDateTime());
       } else {
+        memcpy(pkt->transmitter_callsign, &raw[len], CALLSIGN_TRAILER_SIZE);
+        pkt->transmitter_callsign[CALLSIGN_TRAILER_SIZE] = 0;
         if (tryParsePacket(pkt, raw, len)) {
           pkt->_snr = _radio->getLastSNR() * 4.0f;
           score = _radio->packetScore(_radio->getLastSNR(), len);
@@ -306,10 +316,19 @@ void Dispatcher::checkSend() {
 
   outbound = _mgr->getNextOutbound(_ms->getMillis());
   if (outbound) {
+    // HamCore: transmitting without a station callsign would violate FCC Part 97.119
+    if (!hasStationCallsign()) {
+      MESH_DEBUG_PRINTLN("%s Dispatcher::checkSend(): TX inhibited, no station callsign configured", getLogDateTime());
+      _mgr->free(outbound);
+      outbound = NULL;
+      return;
+    }
+
     int len = 0;
     uint8_t raw[MAX_TRANS_UNIT];
 
-    raw[len++] = outbound->header;
+    // all HamCore frames go out as PAYLOAD_VER_2 (callsign trailer present)
+    raw[len++] = (outbound->header & ~(PH_VER_MASK << PH_VER_SHIFT)) | (PAYLOAD_VER_2 << PH_VER_SHIFT);
     if (outbound->hasTransportCodes()) {
       memcpy(&raw[len], &outbound->transport_codes[0], 2); len += 2;
       memcpy(&raw[len], &outbound->transport_codes[1], 2); len += 2;
@@ -317,12 +336,17 @@ void Dispatcher::checkSend() {
     raw[len++] = outbound->path_len;
     len += Packet::writePath(&raw[len], outbound->path, outbound->path_len);
 
-    if (len + outbound->payload_len > MAX_TRANS_UNIT) {
+    if (len + outbound->payload_len + CALLSIGN_TRAILER_SIZE > MAX_TRANS_UNIT) {
       MESH_DEBUG_PRINTLN("%s Dispatcher::checkSend(): FATAL: Invalid packet queued... too long, len=%d", getLogDateTime(), len + outbound->payload_len);
       _mgr->free(outbound);
       outbound = NULL;
     } else {
       memcpy(&raw[len], outbound->payload, outbound->payload_len); len += outbound->payload_len;
+
+      // station identification trailer (FCC Part 97.119): fixed size, zero-padded
+      memset(&raw[len], 0, CALLSIGN_TRAILER_SIZE);
+      memcpy(&raw[len], station_callsign, strlen(station_callsign));
+      len += CALLSIGN_TRAILER_SIZE;
 
       uint32_t max_airtime = _radio->getEstAirtimeFor(len)*3/2;
       outbound_start = _ms->getMillis();
@@ -360,12 +384,20 @@ Packet* Dispatcher::obtainNewPacket() {
   } else {
     pkt->payload_len = pkt->path_len = 0;
     pkt->_snr = 0;
+    memset(pkt->transmitter_callsign, 0, sizeof(pkt->transmitter_callsign));
   }
   return pkt;
 }
 
 void Dispatcher::releasePacket(Packet* packet) {
   _mgr->free(packet);
+}
+
+void Dispatcher::setStationCallsign(const char* callsign) {
+  memset(station_callsign, 0, sizeof(station_callsign));
+  if (callsign) {
+    strncpy(station_callsign, callsign, CALLSIGN_TRAILER_SIZE);
+  }
 }
 
 void Dispatcher::sendPacket(Packet* packet, uint8_t priority, uint32_t delay_millis) {

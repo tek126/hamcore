@@ -17,7 +17,12 @@
 #define CIPHER_MAC_SIZE      2
 #define PATH_HASH_SIZE       1
 
-#define MAX_PACKET_PAYLOAD  184
+// HamCore: every RF frame ends with a fixed-size station callsign trailer (FCC Part 97.119).
+// MAX_PACKET_PAYLOAD is reduced by the same amount to stay within MAX_TRANS_UNIT at max path depth.
+#define CALLSIGN_TRAILER_SIZE  8
+#define CALLSIGN_BUF_SIZE      (CALLSIGN_TRAILER_SIZE + 1)
+
+#define MAX_PACKET_PAYLOAD  (184 - CALLSIGN_TRAILER_SIZE)
 #define MAX_GROUP_DATA_LENGTH  (MAX_PACKET_PAYLOAD - CIPHER_BLOCK_SIZE - 3)
 #define MAX_PATH_SIZE        64
 #define MAX_TRANS_UNIT      255

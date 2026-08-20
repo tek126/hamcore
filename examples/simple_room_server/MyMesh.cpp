@@ -1,4 +1,5 @@
 #include "MyMesh.h"
+#include <helpers/HamRadio.h>
 
 #define REPLY_DELAY_MILLIS          1500
 #define PUSH_NOTIFY_DELAY_MILLIS    2000
@@ -698,6 +699,7 @@ void MyMesh::begin(FILESYSTEM *fs) {
   _fs = fs;
   // load persisted prefs
   _cli.loadPrefs(_fs);
+  onNodeNameChanged(_prefs.node_name);   // HamCore: derive station callsign (TX inhibited if invalid)
 
   acl.load(_fs, self_id);
   region_map.load(_fs);
@@ -767,6 +769,16 @@ void MyMesh::sendFloodReply(mesh::Packet* packet, unsigned long delay_millis, ui
     case mesh::REPLY_SCOPE_NONE:
       sendFlood(packet, delay_millis, path_hash_size);   // send un-scoped
       break;
+  }
+}
+
+
+void MyMesh::onNodeNameChanged(const char* name) {
+  char callsign[CALLSIGN_BUF_SIZE];
+  if (mesh::HamRadio::extractCallsign(callsign, name) > 0) {
+    setStationCallsign(callsign);
+  } else {
+    setStationCallsign("");   // TX inhibited until the node name starts with a valid callsign
   }
 }
 

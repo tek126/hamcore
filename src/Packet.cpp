@@ -8,6 +8,7 @@ Packet::Packet() {
   header = 0;
   path_len = 0;
   payload_len = 0;
+  memset(transmitter_callsign, 0, sizeof(transmitter_callsign));
 }
 
 bool Packet::isValidPathLen(uint8_t path_len) {
@@ -35,7 +36,7 @@ uint8_t Packet::copyPath(uint8_t* dest, const uint8_t* src, uint8_t path_len) {
 }
 
 int Packet::getRawLength() const {
-  return 2 + getPathByteLen() + payload_len + (hasTransportCodes() ? 4 : 0);
+  return 2 + getPathByteLen() + payload_len + (hasTransportCodes() ? 4 : 0) + CALLSIGN_TRAILER_SIZE;
 }
 
 void Packet::calculatePacketHash(uint8_t* hash) const {
