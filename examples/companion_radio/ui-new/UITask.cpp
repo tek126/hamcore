@@ -52,13 +52,13 @@ public:
   }
 
   int render(DisplayDriver& display) override {
-    // meshcore logo
+    // HamCore logo
     display.setColor(UIColor::corp_blue);
     int logoWidth = 128;
-    display.drawXbm((display.width() - logoWidth) / 2, 3, meshcore_logo, logoWidth, 13);
+    display.drawXbm((display.width() - logoWidth) / 2, 3, hamcore_logo, logoWidth, 13);
 
-    // meshcore website
-    const char* website = "https://meshcore.io";
+    // HamCore tagline
+    const char* website = "Part 97 LoRa mesh";
     display.setColor(UIColor::primary_txt);
     display.setTextSize(1);
     uint16_t websiteWidth = display.getTextWidth(website);

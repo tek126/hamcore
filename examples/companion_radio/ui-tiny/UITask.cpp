@@ -55,14 +55,14 @@ public:
 
   int render(DisplayDriver& display) override {
     if (millis() < version_after) {
-    // meshcore logo
+    // HamCore logo
     display.setColor(UIColor::corp_blue);
     int logoWidth = 72;
-    display.drawXbm(0, 0, meshcore_logo, 72, 36);
+    display.drawXbm(0, 0, hamcore_logo, 72, 36);
     } else {
 
-    // meshcore website
-    const char* website = "meshcore.io";
+    // HamCore tagline
+    const char* website = "Part 97 mesh";
     display.setColor(UIColor::primary_txt);
     display.setTextSize(1);
     uint16_t websiteWidth = display.getTextWidth(website);
