@@ -1,6 +1,7 @@
 #include "MyMesh.h"
 #include <algorithm>
 #include <helpers/HamRadio.h>
+#include <helpers/AuthHelpers.h>
 
 /* ------------------------------ Config -------------------------------- */
 
@@ -100,14 +101,18 @@ uint8_t MyMesh::handleLoginReq(const mesh::Identity& sender, const uint8_t* secr
   }
   if (client == NULL) {
     uint8_t perms;
-    if (strcmp((char *)data, _prefs.password) == 0) { // check for valid admin password
+    // HamCore: only HMAC proof-of-password logins are accepted -- plaintext
+    // passwords are never transmitted (or honored) over RF
+    if (data[0] != LOGIN_AUTH_MARKER) {
+      MESH_DEBUG_PRINTLN("Login rejected: expected auth tag, not a plaintext password");
+      return 0;
+    }
+    if (mesh::AuthHelpers::verifyLoginAuth(&data[1], _prefs.password, sender_timestamp, self_id.pub_key, sender.pub_key)) {
       perms = PERM_ACL_ADMIN;
-    } else if (strcmp((char *)data, _prefs.guest_password) == 0) { // check guest password
+    } else if (mesh::AuthHelpers::verifyLoginAuth(&data[1], _prefs.guest_password, sender_timestamp, self_id.pub_key, sender.pub_key)) {
       perms = PERM_ACL_GUEST;
     } else {
-#if MESH_DEBUG
-      MESH_DEBUG_PRINTLN("Invalid password: %s", data);
-#endif
+      MESH_DEBUG_PRINTLN("Login rejected: auth tag does not match any password");
       return 0;
     }
 
@@ -580,7 +585,7 @@ void MyMesh::onAnonDataRecv(mesh::Packet *packet, const uint8_t *secret, const m
     uint8_t reply_len;
 
     reply_path_len = 0xFF;
-    if (data[4] == 0 || data[4] >= ' ') {   // is password, ie. a login request
+    if (data[4] == 0 || (data[4] == LOGIN_AUTH_MARKER && len >= 5 + LOGIN_AUTH_SIZE)) {   // login request (blank = ACL re-login, else HMAC auth tag)
       reply_len = handleLoginReq(sender, secret, timestamp, &data[4], packet->isRouteFlood());
     } else if (data[4] == ANON_REQ_TYPE_REGIONS && packet->isRouteDirect()) {
       reply_len = handleAnonRegionsReq(sender, timestamp, &data[5]);

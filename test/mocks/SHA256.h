@@ -30,6 +30,15 @@ public:
     }
   }
 
-  void resetHMAC(const uint8_t* key, size_t keyLen) {}
-  void finalizeHMAC(const uint8_t* key, size_t keyLen, uint8_t* hash, size_t hashLen) {}
+  // Mock HMAC: deterministic and key-sensitive (mixes the key into the state
+  // on both reset and finalize) so keyed-MAC tests produce meaningful results.
+  void resetHMAC(const uint8_t* key, size_t keyLen) {
+    _len = 0;
+    memset(_state, 0, sizeof(_state));
+    update(key, keyLen);
+  }
+  void finalizeHMAC(const uint8_t* key, size_t keyLen, uint8_t* hash, size_t hashLen) {
+    update(key, keyLen);
+    finalize(hash, hashLen);
+  }
 };

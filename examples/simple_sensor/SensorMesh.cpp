@@ -1,5 +1,6 @@
 #include "SensorMesh.h"
 #include <helpers/HamRadio.h>
+#include <helpers/AuthHelpers.h>
 
 /* ------------------------------ Config -------------------------------- */
 
@@ -342,10 +343,11 @@ uint8_t SensorMesh::handleLoginReq(const mesh::Identity& sender, const uint8_t* 
       return 0;
     }
   } else {
-    if (strcmp((char *) data, _prefs.password) != 0) {  // check for valid admin password
-    #if MESH_DEBUG
-      MESH_DEBUG_PRINTLN("Invalid password: %s", &data[4]);
-    #endif
+    // HamCore: only HMAC proof-of-password logins are accepted -- plaintext
+    // passwords are never transmitted (or honored) over RF
+    if (data[0] != LOGIN_AUTH_MARKER
+        || !mesh::AuthHelpers::verifyLoginAuth(&data[1], _prefs.password, sender_timestamp, self_id.pub_key, sender.pub_key)) {
+      MESH_DEBUG_PRINTLN("Login rejected: bad or missing auth tag");
       return 0;
     }
 
@@ -459,7 +461,7 @@ void SensorMesh::onAnonDataRecv(mesh::Packet* packet, const uint8_t* secret, con
 
     data[len] = 0;  // ensure null terminator
     uint8_t reply_len;
-    if (data[4] == 0 || data[4] >= ' ') {   // is password, ie. a login request
+    if (data[4] == 0 || (data[4] == LOGIN_AUTH_MARKER && len >= 5 + LOGIN_AUTH_SIZE)) {   // login request (blank = ACL re-login, else HMAC auth tag)
       reply_len = handleLoginReq(sender, secret, timestamp, &data[4], packet->isRouteFlood());
     //} else if (data[4] == ANON_REQ_TYPE_*) {   // future type codes
       // TODO

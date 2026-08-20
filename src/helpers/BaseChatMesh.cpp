@@ -1,4 +1,5 @@
 #include <helpers/BaseChatMesh.h>
+#include <helpers/AuthHelpers.h>
 #include <Utils.h>
 
 #ifndef SERVER_RESPONSE_DELAY
@@ -573,18 +574,22 @@ int BaseChatMesh::sendLogin(const ContactInfo& recipient, const char* password, 
   mesh::Packet* pkt;
   {
     int tlen;
-    uint8_t temp[24];
+    uint8_t temp[32];
     uint32_t now = getRTCClock()->getCurrentTimeUnique();
     memcpy(temp, &now, 4);   // mostly an extra blob to help make packet_hash unique
+    // HamCore: never transmit the password. A non-blank password is replaced by an
+    // HMAC proof-of-password tag (see AuthHelpers.h); a blank password stays blank
+    // (server-side ACL re-login check).
+    int ofs = (recipient.type == ADV_TYPE_ROOM) ? 8 : 4;
     if (recipient.type == ADV_TYPE_ROOM) {
       memcpy(&temp[4], &recipient.sync_since, 4);
-      int len = strlen(password); if (len > 15) len = 15;  // max 15 chars currently
-      memcpy(&temp[8], password, len);
-      tlen = 8 + len;
+    }
+    if (password[0] == 0) {
+      tlen = ofs;
     } else {
-      int len = strlen(password); if (len > 15) len = 15;  // max 15 chars currently
-      memcpy(&temp[4], password, len);
-      tlen = 4 + len;
+      temp[ofs] = LOGIN_AUTH_MARKER;
+      mesh::AuthHelpers::computeLoginAuth(&temp[ofs + 1], password, now, recipient.id.pub_key, self_id.pub_key);
+      tlen = ofs + 1 + LOGIN_AUTH_SIZE;
     }
 
     pkt = createAnonDatagram(PAYLOAD_TYPE_ANON_REQ, self_id, recipient.id, recipient.getSharedSecret(self_id), temp, tlen);

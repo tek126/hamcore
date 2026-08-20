@@ -1,5 +1,6 @@
 #include "MyMesh.h"
 #include <helpers/HamRadio.h>
+#include <helpers/AuthHelpers.h>
 
 #define REPLY_DELAY_MILLIS          1500
 #define PUSH_NOTIFY_DELAY_MILLIS    2000
@@ -343,15 +344,18 @@ void MyMesh::onAnonDataRecv(mesh::Packet *packet, const uint8_t *secret, const m
     }
     if (client == NULL) {
       uint8_t perm;
-      if (strcmp((char *)&data[8], _prefs.password) == 0) { // check for valid admin password
+      // HamCore: only HMAC proof-of-password logins are accepted -- plaintext
+      // passwords are never transmitted (or honored) over RF
+      bool has_auth = data[8] == LOGIN_AUTH_MARKER && len >= 9 + LOGIN_AUTH_SIZE;
+      if (has_auth && mesh::AuthHelpers::verifyLoginAuth(&data[9], _prefs.password, sender_timestamp, self_id.pub_key, sender.pub_key)) {
         perm = PERM_ACL_ADMIN;
       } else {
-        if (strcmp((char *)&data[8], _prefs.guest_password) == 0) {   // check the room/public password
+        if (has_auth && mesh::AuthHelpers::verifyLoginAuth(&data[9], _prefs.guest_password, sender_timestamp, self_id.pub_key, sender.pub_key)) {   // check the room/public password
           perm = PERM_ACL_READ_WRITE;
         } else if (_prefs.allow_read_only) {
           perm = PERM_ACL_GUEST;
         } else {
-          MESH_DEBUG_PRINTLN("Incorrect room password");
+          MESH_DEBUG_PRINTLN("Incorrect room login auth");
           return; // no response. Client will timeout
         }
       }

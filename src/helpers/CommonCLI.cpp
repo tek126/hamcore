@@ -265,7 +265,12 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, char* command, char* re
         strcpy(reply, "Error, invalid params (freq must be in 420-450 or 902-928 MHz)");
       }
     } else if (memcmp(command, "password ", 9) == 0) {
-      // change admin password
+      // change admin password. HamCore: local/serial only -- a remote change would
+      // transmit the new password in plaintext over RF
+      if (sender_timestamp != 0) {
+        strcpy(reply, "Error: password can only be changed over local serial/USB (RF is plaintext)");
+        return;
+      }
       StrHelper::strncpy(_prefs->password, &command[9], sizeof(_prefs->password));
       savePrefs();
       sprintf(reply, "password now: ");
@@ -515,6 +520,12 @@ void CommonCLI::handleSetCmd(uint32_t sender_timestamp, char* command, char* rep
       strcpy(reply, "OK");
     }
   } else if (memcmp(config, "guest.password ", 15) == 0) {
+    // HamCore: local/serial only -- a remote change would transmit the new
+    // password in plaintext over RF
+    if (sender_timestamp != 0) {
+      strcpy(reply, "Error: guest.password can only be changed over local serial/USB (RF is plaintext)");
+      return;
+    }
     StrHelper::strncpy(_prefs->guest_password, &config[15], sizeof(_prefs->guest_password));
     savePrefs();
     strcpy(reply, "OK");
