@@ -123,6 +123,8 @@ First-boot checklist: flash, connect (serial CLI or client), then
 
 ---
 
-*HamCore is not legal advice. Rules cited are current as of 2026; verify against the
+*HamCore is developed with substantial assistance from generative AI (Anthropic's
+Claude), directed and reviewed by a human maintainer — see the AI disclosure in the
+README. HamCore is not legal advice. Rules cited are current as of 2026; verify against the
 latest Part 97 text. MeshCore is a trademark of its respective owners; this fork is
 independent and unaffiliated.*

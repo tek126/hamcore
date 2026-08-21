@@ -177,3 +177,12 @@ the existing brace/indent style, keep it simple. To pull upstream MeshCore fixes
 
 *HamCore is independent of and unaffiliated with the MeshCore project. Nothing here is
 legal advice — verify against the current Part 97 text before operating.*
+
+## AI disclosure
+
+HamCore is developed with substantial assistance from generative AI (Anthropic's
+Claude, via Claude Code), directed, reviewed, and operated by a human maintainer.
+AI-assisted commits carry a `Co-Authored-By: Claude` trailer in the git history.
+The code is verified by automated tests and real hardware builds, but as with any
+software — and especially anything bearing on FCC Part 97 compliance — review and
+test it yourself before relying on it. This project is not legal advice.
