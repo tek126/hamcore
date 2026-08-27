@@ -117,15 +117,18 @@ range automatically; a `set advert.interval 10` gives an infrastructure node a
 
 ## Client software
 
+- **[HamCore Open](https://github.com/tek126/hamcore-open)** — the phone/web app
+  (Flutter). [Android APK](https://kc2kvy.com/hamcore/app/hamcore-open.apk),
+  [iOS TestFlight](https://testflight.apple.com/join/3rjqusNP), and a
+  [browser client](https://kc2kvy.com/hamcore/web/).
 - **[hamcore-cli](https://github.com/tek126/hamcore-cli)** — terminal client
-  (interactive chat, contact management, remote repeater admin). The supported client.
+  (interactive chat, contact management, remote repeater admin).
 - **[hamcore_py](https://github.com/tek126/hamcore_py)** — the Python library behind
   it, for building your own tools and bots.
 
 Stock MeshCore phone/web apps speak the same BLE/serial companion protocol and may
 partially work, but they are untested against HamCore and their radio-preset screens
-offer Part 15 frequencies that HamCore firmware will refuse. Use the CLI until a
-dedicated app exists.
+offer Part 15 frequencies that HamCore firmware will refuse.
 
 ## Remote administration
 
