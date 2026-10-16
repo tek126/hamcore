@@ -9,7 +9,7 @@ changes required to transmit legally as a licensed amateur station.
 
 | Repository | Contents |
 |---|---|
-| [hamcore](https://github.com/tek126/hamcore) | This repo — HamCore firmware (fork of MeshCore v1.17.1) |
+| [hamcore](https://github.com/tek126/hamcore) | This repo — HamCore firmware (fork of MeshCore, tracking v1.18.0) |
 | [hamcore_py](https://github.com/tek126/hamcore_py) | Python companion library (fork of `meshcore_py`) |
 | [hamcore-cli](https://github.com/tek126/hamcore-cli) | Terminal client (fork of `meshcore-cli`) |
 
@@ -92,9 +92,11 @@ every 10 minutes.
   transmits the password: the client sends a 16-byte HMAC-SHA256 proof
   (key = password, message = timestamp || server pubkey || client pubkey), so the
   password never leaves the device, and replayed logins are rejected by the server's
-  timestamp check. Remote `password` / `guest.password` changes over RF are refused
-  (they only work over the local serial console) so a new password is never
-  transmitted either. Even so, never reuse a password you care about.
+  timestamp check. Remote `password` / `guest.password` changes (and `get guest.password`)
+  over RF are refused (they only work over the local serial console) so a password is
+  never transmitted either. `set prv.key` is serial-only for the same reason (a remote
+  rekey would broadcast the new private key). Likewise, the companion's remote CLI refuses `set pin` and
+  `set`/`get wifi.pwd`; use the local USB/BLE app connection for those. Even so, never reuse a password you care about.
 - **Third-party traffic, prohibited content, pecuniary interest** rules (§97.113) still
   apply to what people type.
 - **Control operator:** unattended repeaters/room servers operate under automatic
@@ -110,6 +112,10 @@ prefix (`HamCore-`); the bundled `client-lib`/`client-cli` handle both.
 The KISS modem firmware target drives the radio directly and bypasses the mesh stack —
 if you use it, callsign identification is the host application's responsibility (as
 with any TNC).
+
+The companion's `send_raw_data` / `send_raw_packet` commands still go out with the
+callsign trailer and version 2 header, but the payload bytes are whatever the host app
+supplies — don't send encrypted content through them.
 
 ## Building
 
